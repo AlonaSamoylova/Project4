@@ -1,9 +1,77 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+# a function to get user input with a default value, needed as we need many (8) possible parameters, as test cases are not given I assumed that all parametrs may be changed
 
-# Ψ^(n+1) = (I - (iτ / hbar) * H) * Ψ^n (9.32)
-# Ψ^(n+1) = (I + iτ/2ħ H)^(-1) (I - iτ/2ħ H) Ψ^n                      (9.40)
+def get_input(prompt, default=None):
+    """
+    Prompts the user for input and returns the entered value.
+    If no input is given, it returns the default value instead.
+    Supports both single values (int/float) and lists.
+    """
+    if default is not None:
+        print(f"Suggested value: {default}")  # suggest the default value
+    
+    user_input = input(f"{prompt}: ")
+
+    # if the user presses Enter without typing, use the default (if available).
+    if user_input.strip() == "" and default is not None:
+        return default
+    
+    # try to convert the input to a float for single numbers or lists.
+    try:
+        return float(user_input)
+    except ValueError:
+        try:
+            # if input cannot be converted to a float, attempt to parse it as a list (for wave packet parameters, etc.).
+            return [float(i) for i in user_input.split(',')]
+        except ValueError:
+            print("Invalid input format. Using default value.")
+            return default  # return the default if parsing fails.
+
+
+
+def get_input(prompt, default):
+    """
+    Prompts the user for input and returns the entered value.
+    If no input is given, it returns the default value insted.
+    """
+    user_input = input(f"{prompt}. The default value is: {default}. : ") #"The input() function allows user input". The default value is also shown to th euser
+    return float(user_input) if user_input.strip() else default
+
+# prompts for the function
+print("Please provide the input values for the simulation (or press Enter to use default test case values):")
+
+# gets number of spatial grid points (suggesting a default value of 400)
+nspace = get_input("Please enter number of spatial grid points.The is no hardcoded default value but '400' is suggested", 400)         #the default value was not given in instructions and 
+# as I should leave the function def. line unchanged, I cannot hardcode default one but at least can suggest, '400' for ex.
+
+# number of time steps (suggesting a default value of 1000)
+ntime = get_input("Please enter the number of time steps. There is no default value but '1000' is suggested", 1000)    #1000 is suggested
+
+# time step (suggesting a default value of 0.1)
+tau = get_input("Please enter time step. There is no default value but '0.1' is suggested", 0.1)  #0.1 is suggested
+
+method = get_input("Please enter method", 'ftcs')        #Method to use ('ftcs' or 'crank').
+
+# Length of spatial grid
+length = get_input("Please enter the length of spatial grid", 200)        # Default value is 200
+
+# tspatial index values at which the potential V(x) = 1
+potential = get_input("Please enter spatial index values at which the potential V(x) = 1", []) #Default to empty.
+
+#parameters for initial wave packet
+wparam = get_input("Please enter parameters for initial wave packet [sigma0, x0, k0]", [10, 0, 0.5]) #Default [10, 0, 0.5].
+
+# # print the collected input to confirm the values
+# print("\nSimulation Parameters:")
+# print(f"Number of spatial grid points: {nspace}")
+# print(f"Number of time steps: {ntime}")
+# print(f"Time step: {tau}")
+# print(f"Method: {method}")
+# print(f"Length of spatial grid: {length}")
+# print(f"Potential index values: {potential}")
+# print(f"Initial wave packet parameters (sigma0, x0, k0): {wparam}")
 
 
 def hamiltonian(nspace, potential=None, dx=1): #new function added
@@ -45,8 +113,6 @@ def hamiltonian(nspace, potential=None, dx=1): #new function added
     H *= -0.5 / dx**2
     
     return H
-
-
 
 
 def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=[10, 0, 0.5]):
