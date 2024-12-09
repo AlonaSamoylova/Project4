@@ -6,6 +6,49 @@ import matplotlib.pyplot as plt
 # Ψ^(n+1) = (I + iτ/2ħ H)^(-1) (I - iτ/2ħ H) Ψ^n                      (9.40)
 
 
+def hamiltonian(nspace, potential=None, dx=1): #new function added
+    """
+    Constructs the Hamiltonian matrix for a free particle with the given potential.
+    
+    Parameters:
+        nspace (int) => Number of spatial grid points.
+        potential (1D array or None) => potential values at each grid point. If None, a zero potential is assumed.
+        dx (float) => Spatial step size. Default is 1 (normalized).
+    
+    Returns:
+        H (2D array)=> Hamiltonian matrix for the system.
+    """
+    if potential is None:
+        potential = np.zeros(nspace)  # default to zero potential if none provided
+    else:
+        # to ensure potential array is the same length as nspace by padding with zeros if needed
+        if len(potential) < nspace:
+            potential = np.pad(potential, (0, nspace - len(potential)), mode='constant')
+        elif len(potential) > nspace:
+            raise ValueError("Potential array is longer than the number of grid points")
+    
+    H = np.zeros((nspace, nspace), dtype=float)  # Initializing matrix , firstly i wanted to set type to complex but we need only real values?
+
+    # in the considered case  H=− ∂^2/ ∂x^2x +V(x) if m = 1/2 and nbar=1 by (9.27)
+
+    # Kinetic energy operator (second derivative approximation with periodic boundary)
+    for i in range(nspace):
+        H[i, i] = -2  # center term (discretized second derivative)
+        H[i, (i + 1) % nspace] = 1  # Right neighbor (BC)
+        H[i, (i - 1) % nspace] = 1  # Left neighbor (BC)
+
+    # Apply the potential V(x) to the diagonal terms of the Hamiltonian
+    for i in range(nspace):
+        H[i, i] += potential[i]  # adds potential to the diagonal
+
+    # scaling by -ħ² / 2m (assuming hbar = 1 and m = 1/2 so -h² / 2m = -1)
+    H *= -0.5 / dx**2
+    
+    return H
+
+
+
+
 def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=[10, 0, 0.5]):
     """
     Solves the 1D time-dependent Schrödinger equation using FTCS or Crank-Nicholson scheme.
@@ -40,19 +83,8 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
     # initial wave packet Psi(x, 0)                         X
     # Hamiltonian H (tridiagonal matrix)                    V
     # H = -(hbar^2 / 2m)*(∂^2 / ∂x^2) + V(x) (9.27) then if m = 1/2 and nbar=1 : H=− ∂^2/ ∂x^2x +V(x)
-    # then let's approximate second dwerivative:
-    V = np.zeros(nspace)  # default potential
-    # if potential == []:
-    #     V = None #to avoid error
-    for index in potential:
-        V[index] = 1
-    diagonal = -2 / dx**2 + V #diag. terms
-    off_diagonal = np.ones(nspace - 1) / dx**2
-    H = np.diag(diagonal) + np.diag(off_diagonal, 1) + np.diag(off_diagonal, -1)
-    # periodic
-    H[0, -1] = H[-1, 0] = 1 / dx**2
-
-    print(H) #test
+    H = hamiltonian(nspace, potential, dx)
+    print (H)
 
 
     # if method == 'ftcs':
@@ -73,11 +105,10 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
 sch_eqn(nspace = 400, ntime = 1000, tau = 0.1, length = 200)
 
 # to test H
-# Output: - doesn't look corect
-# [[-8.  4.  0. ...  0.  0.  4.]
-#  [ 4. -8.  4. ...  0.  0.  0.]
-#  [ 0.  4. -8. ...  0.  0.  0.]
+# Output:  [[ 4. -2. -0. ... -0. -0. -2.] #now Ek =4 is positive! seems correct
+#  [-2.  4. -2. ... -0. -0. -0.]
+#  [-0. -2.  4. ... -0. -0. -0.]
 #  ...
-#  [ 0.  0.  0. ... -8.  4.  0.]
-#  [ 0.  0.  0. ...  4. -8.  4.]
-#  [ 4.  0.  0. ...  0.  4. -8.]]
+#  [-0. -0. -0. ...  4. -2. -0.]
+#  [-0. -0. -0. ... -2.  4. -2.]
+#  [-2. -0. -0. ... -0. -2.  4.]]
