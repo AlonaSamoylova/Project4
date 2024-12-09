@@ -71,20 +71,33 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
 
     # constants
     hbar = 1  # Planck's constant
+    mass = 0.5 ## Mass of the particle as given in the instructions
     L = length  # spatial grid length #system extends from -L/2 to L/2
     dx = L / nspace  # spatial step size
     x_grid = np.linspace(-L / 2, L / 2, nspace, endpoint=False)  # spatial grid
     t_grid = np.linspace(0, ntime * tau, ntime)  # time grid
 
     #init. param.
+    # According to the textbook : Gaussian wave packet; the initial wave function is ψ(x, t = 0) = (1 / √(σ₀√π)) * exp[i*k₀x - (x - x₀)² / 2σ₀²]         (9.42)
+
+    # wave packet parameters
+    x0 = 0.0           # Initial position of the wave packet center
+    velocity = 0.5     # Average velocity of the wave packet
+    k0 = mass * velocity / hbar  # Average wave number
+    sigma0 = L / 10.0  # Standard deviation of the wave packet
+    Norm = 1 / (np.sqrt(sigma0 * np.sqrt(np.pi)))  # Normalization constant
+
+    # Initialize wave function (Gaussian wave packet) - Eq. (9.42)
+    psi = Norm * np.exp(-(x_grid - x0)**2 / (2 * sigma0**2)) * np.exp(1j * k0 * x_grid)
+
+
 
     # Plan:
-    # Setup spatial from -L/2 to L/2? and temporal grids   V
-    # initial wave packet Psi(x, 0)                         X
+    # Setup spatial from -L/2 to L/2? and temporal grids   V done
+    # initial wave packet Psi(x, 0)                         V
     # Hamiltonian H (tridiagonal matrix)                    V
     # H = -(hbar^2 / 2m)*(∂^2 / ∂x^2) + V(x) (9.27) then if m = 1/2 and nbar=1 : H=− ∂^2/ ∂x^2x +V(x)
     H = hamiltonian(nspace, potential, dx)
-    print (H)
 
 
     # if method == 'ftcs':
