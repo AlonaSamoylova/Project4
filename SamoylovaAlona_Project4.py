@@ -274,12 +274,44 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
     plt.legend()
     
     # saves the plot to a file if requested
-    if save_to_file:
+    if save_to_file == True:
         plt.savefig(filename)
         print(f"Plot saved to {filename}")
     
     # to show the plot
     plt.show()
 
-     
-sch_plot()
+
+print("\n") #adding space #to separate it from previous user input
+
+
+#asking the user if they want to plot the results and call sch_plot()
+plot = input("Do you want to plot the results? Please enter 'yes' to plot: ").strip().lower()
+
+if plot == 'yes':
+    # New sch_plot parameter prompts
+    plot_type = input("Please enter plot type ('psi' for wavefunction, 'prob' for probability density): ").strip().lower()
+    
+    # checking plot_type input
+    if plot_type not in ['psi', 'prob']:
+        print("Invalid input for the plot type. Plotting the default 'psi' plot.")
+        plot_type = 'psi'
+
+    t_index_input = input("Please enter time index (leave blank for the last time step): ").strip()
+    t_index = int(t_index_input) if t_index_input else None
+
+    save_to_file_input = input("Do you want to save the plot to a file? (yes or no): ").strip().lower()
+    if save_to_file_input in ['yes', 'y']:
+        save_to_file = True
+        filename = input("Enter filename for saving the plot (default is 'sch_plot.png'): ").strip()
+        if not filename:
+            filename = "sch_plot.png"
+    else:
+        save_to_file = False
+        filename = "sch_plot.png"  # Exists for the function call but will not be used if save_to_file is False.
+
+    # calling sch_plot()
+    sch_plot(plot_type=plot_type, t_index=t_index, save_to_file=save_to_file, filename=filename)
+else:
+    print("No plot will be generated.")
+
