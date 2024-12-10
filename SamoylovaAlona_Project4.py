@@ -3,41 +3,37 @@ import matplotlib.pyplot as plt
 
 # a function to get user input with a default value, needed as we need many (8) possible parameters, as test cases are not given I assumed that all parametrs may be changed
 
+import ast 
+# need as list separation by coma in the user prompt wasn't efficient
+
 def get_input(prompt, default=None):
     """
     Prompts the user for input and returns the entered value.
     If no input is given, it returns the default value instead.
-    Supports both single values (int/float) and lists.
+    Supports single values (int/float), lists, and strings.
     """
-    if default is not None:
-        print(f"Suggested value: {default}")  # suggest the default value
-    
-    user_input = input(f"{prompt}: ")
+    user_input = input(f"{prompt}. The default value is: {default}. : ")  # Show the prompt with the default value
 
-    # if the user presses Enter without typing, use the default (if available).
+    # If the user presses Enter without typing, use the default (if available).
     if user_input.strip() == "" and default is not None:
         return default
     
-    # try to convert the input to a float for single numbers or lists.
+    # converts string input to lowercase before processing
+    user_input = user_input.strip().lower()
+
+
+    # Try to convert the input to a float for single numbers.
     try:
         return float(user_input)
     except ValueError:
+        # If conversion to a float fails, check if it's a valid list input
         try:
-            # if input cannot be converted to a float, attempt to parse it as a list (for wave packet parameters, etc.).
-            return [float(i) for i in user_input.split(',')]
-        except ValueError:
-            print("Invalid input format. Using default value.")
-            return default  # return the default if parsing fails.
+            # Try to interpret the input as a Python-style list using ast.literal_eval
+            return ast.literal_eval(user_input)
+        except (ValueError, SyntaxError):
+            # If it's neither a number nor a list, treat it as a string.
+            return user_input.strip()
 
-
-
-def get_input(prompt, default):
-    """
-    Prompts the user for input and returns the entered value.
-    If no input is given, it returns the default value insted.
-    """
-    user_input = input(f"{prompt}. The default value is: {default}. : ") #"The input() function allows user input". The default value is also shown to th euser
-    return float(user_input) if user_input.strip() else default
 
 # prompts for the function
 print("Please provide the input values for the simulation (or press Enter to use default test case values):")
@@ -62,6 +58,14 @@ potential = get_input("Please enter spatial index values at which the potential 
 
 #parameters for initial wave packet
 wparam = get_input("Please enter parameters for initial wave packet [sigma0, x0, k0]", [10, 0, 0.5]) #Default [10, 0, 0.5].
+
+# print(f"nspace: {nspace}")
+# print(f"ntime: {ntime}")
+# print(f"tau: {tau}")
+# print(f"method: {method}")
+# print(f"length: {length}")
+# print(f"potential: {potential}")
+# print(f"wparam: {wparam}")
 
 
 def hamiltonian(nspace, potential=None, dx=1): #new function added
@@ -103,6 +107,8 @@ def hamiltonian(nspace, potential=None, dx=1): #new function added
     H *= -0.5 / dx**2
     
     return H
+
+
 
 
 def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=[10, 0, 0.5]):
@@ -244,8 +250,7 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
     if plot_type == 'psi':
         # plots the real and imaginary parts of the wave function
         plt.figure(figsize=(10, 6))
-        plt.plot(x_grid, np.real(psi_grid[:, t_index]), label='Real part of ψ(x,t)')
-        plt.plot(x_grid, np.imag(psi_grid[:, t_index]), '--', label='Imaginary part of ψ(x,t)')
+        plt.plot(x_grid, np.real(psi_grid[:, t_index]), label='Real part of ψ(x,t)') # we need only real part
         plt.title(f"Wave Function ψ(x,t) at t = {time:.2f}", fontsize=16)
         plt.xlabel('x', fontsize=12)
         plt.ylabel('ψ(x,t)', fontsize=12)
