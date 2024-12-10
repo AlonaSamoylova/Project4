@@ -63,16 +63,6 @@ potential = get_input("Please enter spatial index values at which the potential 
 #parameters for initial wave packet
 wparam = get_input("Please enter parameters for initial wave packet [sigma0, x0, k0]", [10, 0, 0.5]) #Default [10, 0, 0.5].
 
-# # print the collected input to confirm the values
-# print("\nSimulation Parameters:")
-# print(f"Number of spatial grid points: {nspace}")
-# print(f"Number of time steps: {ntime}")
-# print(f"Time step: {tau}")
-# print(f"Method: {method}")
-# print(f"Length of spatial grid: {length}")
-# print(f"Potential index values: {potential}")
-# print(f"Initial wave packet parameters (sigma0, x0, k0): {wparam}")
-
 
 def hamiltonian(nspace, potential=None, dx=1): #new function added
     """
@@ -224,4 +214,43 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
 
     return psi_grid, x_grid, t_grid, prob_array
 
+def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_plot.png"):
+    """
+    Plots the wave function ψ(x,t) or the probability density |ψ(x,t)|² at a specific time.
+    
+    Parameters:
+        plot_type (str) => 'psi' for the real part of the wave function, 'prob' for the probability density.
+        t_index (int) => Time index at which to plot (if None, the last time step is used).
+        save_to_file (bool) => If True, saves the plot to a file.
+        filename (str) => The filename to save the plot (only if save_to_file=True).
+    
+    Returns:
+        None (Displays the plot).
+    """
+    # Calling sch_eqn to get its results and use as extra parameters.
 
+    # sch_eqn (function) => Solves the 1D time-dependent Schrödinger equation using FTCS or Crank-Nicholson scheme. It returns the following parameters:
+    #     psi_grid (2D array) => Wavefunction ψ(x, t) at all grid points and times.
+    #     x_grid (1D array) => Spatial grid points.
+    #     t_grid (1D array) => Time steps.
+    #     prob_array (1D array) => Total probability at each time step.
+
+    psi_grid, x_grid, t_grid, prob_array = sch_eqn(nspace=nspace, ntime=ntime, tau=tau, method=method, length=length, potential=potential, wparam=wparam)
+
+    # Determines time index for plotting
+    if t_index is None:
+        t_index = len(t_grid) - 1  # Default to the last time step
+
+    # extracting the time step and corresponding wave function or probability density
+    time = t_grid[t_index]
+    if plot_type == 'psi':
+        # plots the real part of the wave function at the selected time step
+        plt.figure(figsize=(10, 6))
+        plt.plot(x_grid, np.real(psi_grid[t_index, :]), label=f'ψ(x,t) at t={time:.2f}')
+        plt.title(f"Wave Function ψ(x,t) at t = {time:.2f}", fontsize=16)
+        plt.xlabel('x', fontsize=12)
+        plt.ylabel('ψ(x,t)', fontsize=12)
+
+
+     
+sch_plot()
