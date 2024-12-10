@@ -237,7 +237,7 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
 
     psi_grid, x_grid, t_grid, prob_array = sch_eqn(nspace=nspace, ntime=ntime, tau=tau, method=method, length=length, potential=potential, wparam=wparam)
 
-    # Determines time index for plotting
+    # determines time index for plotting
     if t_index is None:
         t_index = len(t_grid) - 1  # Default to the last time step
 
@@ -251,6 +251,35 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
         plt.xlabel('x', fontsize=12)
         plt.ylabel('ψ(x,t)', fontsize=12)
 
+    # I can't directly use prob_array for plotting is that it represents the total probability over all spatial grid points at each time step, rather than the local probability density at each point in space.
+    # to instead of integral of abs [psi^2] given by prob_array, I need only abs [psi^2]
+    # From instructions: prob_array is "1-D array that gives the total probability computed for each timestep (which should be conserved)" 
+    # so prob_array matches the instructions perfectly. It ensures the conservation of total probability over time and helps validate the numerical accuracy of your method. 
+    # However, for spatial plots or local probability densities, i need to compute ∣ψ(x,t)∣ ^2 directly from the wavefunction
+
+    elif plot_type == 'prob':
+        # plots the probability density |ψ(x,t)|² at the selected time step
+        plt.figure(figsize=(10, 6))
+        plt.plot(x_grid, np.abs(psi_grid[t_index, :])**2, label=f'$|ψ(x,t)|^2$ at t={time:.2f}')
+        plt.title(f"Probability Density |ψ(x,t)|² at t = {time:.2f}", fontsize=16)
+        plt.xlabel('x', fontsize=12)
+        plt.ylabel('|ψ(x,t)|²', fontsize=12)
+
+    else:
+        raise ValueError("Invalid plot_type. Use 'psi' for wave function or 'prob' for probability density.")
+
+
+    # to show grid and legend
+    plt.grid(True)
+    plt.legend()
+    
+    # saves the plot to a file if requested
+    if save_to_file:
+        plt.savefig(filename)
+        print(f"Plot saved to {filename}")
+    
+    # to show the plot
+    plt.show()
 
      
 sch_plot()
