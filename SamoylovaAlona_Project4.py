@@ -52,7 +52,7 @@ ntime = get_input("Please enter the number of time steps. There is no default va
 # time step (suggesting a default value of 0.1)
 tau = get_input("Please enter time step. There is no default value but '0.1' is suggested", 0.1)  #0.1 is suggested
 
-method = get_input("Please enter method", 'ftcs')        #Method to use ('ftcs' or 'crank').
+method = get_input("Please enter method. Type ftcs or crank", 'ftcs')        #Method to use ('ftcs' or 'crank').
 
 # Length of spatial grid
 length = get_input("Please enter the length of spatial grid", 200)        # Default value is 200
@@ -129,7 +129,7 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
 
     # constants
     hbar = 1  # Planck's constant
-    mass = 0.5 ## Mass of the particle as given in the instructions
+    # mass = 0.5 ## Mass of the particle as given in the instructions
     L = length  # spatial grid length #system extends from -L/2 to L/2
     dx = L / nspace  # spatial step size
     x_grid = np.linspace(-L / 2, L / 2, nspace, endpoint=False)  # spatial grid
@@ -139,80 +139,75 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
     # According to the textbook : Gaussian wave packet; the initial wave function is ψ(x, t = 0) = (1 / √(σ₀√π)) * exp[i*k₀x - (x - x₀)² / 2σ₀²]         (9.42)
 
     # wave packet parameters
-    x0 = 0.0           # Initial position of the wave packet center
-    velocity = 0.5     # Average velocity of the wave packet
-    k0 = mass * velocity / hbar  # Average wave number
-    sigma0 = L / 10.0  # Standard deviation of the wave packet
+    # Let's unpack the initial position of the wave packet center, average wave number and the standard deviation of the wave packet
+    sigma0, x0, k0 = wparam
+
     Norm = 1 / (np.sqrt(sigma0 * np.sqrt(np.pi)))  # Normalization constant
 
-    # Initialize wave function (Gaussian wave packet) - Eq. (9.42)
-    psi = Norm * np.exp(-(x_grid - x0)**2 / (2 * sigma0**2)) * np.exp(1j * k0 * x_grid)
 
+  
+    # # initializing wave function (Gaussian wave packet) - Eq. (9.42)
+    psi_init = Norm * np.exp(-(x_grid - x0)**2 / (2 * sigma0**2)) * np.exp(1j * k0 * x_grid)
+
+    # initializing the wave function grid for all times
+    psi_grid = np.zeros((nspace, ntime), dtype=complex)  # No +1 for ntime
+    psi_grid[:, 0] = psi_init  # Initial condition
+    psi = psi_init.copy()
+    
 
     # Hamiltonian H (tridiagonal matrix)                    
     # H = -(hbar^2 / 2m)*(∂^2 / ∂x^2) + V(x) (9.27) then if m = 1/2 and nbar=1 : H=− ∂^2/ ∂x^2x +V(x)
     H = hamiltonian(nspace, potential, dx)
 
+    #probability storage
+    prob_array = np.zeros(ntime)
+    prob_array[0] = np.sum(np.abs(psi)**2)
 
-    if method == 'ftcs':
-        # Ψ^(n+1) = (I - (iτ / hbar) * H) * Ψ^n (9.32)
+    # Start solving the equation for each time step
+    for n in range(1, ntime):
+        # For FTCS method:
 
-        # stability check : "The disadvantage of the FTCS scheme is that it is numerically unstable if the time step is too large."
-        # Matrix coefficients; Discretization parameter is given by: r = tau / (dx**2) * hbar / (2 * m)  but nbar/2m =1 so
-        r = tau / (dx**2)
-        # at the same time h_coeff = ħ² / (2m) so max allowable time step is tau_max = dx**2 / (2 * h_coeff / hbar) but in our case when nbar=1 and m=0.5: #from wiki
-        tau_max = dx**2 / 2 # max allowable time step
-        if r > 0.5 or tau > tau_max:
-            raise ValueError(f"Unstable: Time step τ={tau:.4e} exceeds stability limit τ_max={tau_max:.4e}. Reduce τ.")
+        if method == 'ftcs':
+            # Ψ^(n+1) = (I - (iτ / hbar) * H) * Ψ^n (9.32)
+
+            # stability check : "The disadvantage of the FTCS scheme is that it is numerically unstable if the time step is too large."
+            # Matrix coefficients; Discretization parameter is given by: r = tau / (dx**2) * hbar / (2 * m)  but nbar/2m =1 so
+            r = tau / (dx**2)
+            # at the same time h_coeff = ħ² / (2m) so max allowable time step is tau_max = dx**2 / (2 * h_coeff / hbar) but in our case when nbar=1 and m=0.5: #from wiki
+            tau_max = dx**2 / 2 # max allowable time step
+            if r > 0.5 or tau > tau_max:
+                raise ValueError(f"Unstable: Time step τ={tau:.4e} exceeds stability limit τ_max={tau_max:.4e}. Reduce τ.")
+            
+            # # constructing matrix A = I - iτ/ħ H is not neccessary, instead set this explicitely
+            
+            # updates the wavefunction using FTCS method
+            psi = psi + (-1j * tau) * np.dot(H, psi)  # Update ψ^(n+1)
+            
+        elif method == 'crank':
+            # Ψ^(n+1) = (I + iτ/2ħ H)^(-1) (I - iτ/2ħ H) Ψ^n
+            # Construct matrices A and B (the parts of the formula in ()) for Crank-Nicholson
+            # Solving A Psi^(n+1) = B Psi^n
+            
+            # A = I + (iτ / 2ħ) H, B = I - (iτ / 2ħ) H
+            A = np.identity(nspace) + 1j * tau / (2 * hbar) * H
+            B = np.identity(nspace) - 1j * tau / (2 * hbar) * H
+
+            # to precompute the Crank-Nicholson matrix: dCN = A⁻¹ * B as in example
+            dCN = np.dot(np.linalg.inv(A), B)
+
+            # time evolution
+            psi = np.dot(dCN, psi)  # updates psi using precomputed matrix dCN
+      
+        else:
+            raise ValueError("Invalid method. Please choose 'ftcs' or 'crank'.")
         
-
-        # constructing matrix A = I - iτ/ħ H for FTCS
-        I = np.identity(nspace, dtype=complex)
-        A = I - 1j * tau / hbar * H
-
-        # initializing the wave function grid for all times
-        psi_grid = np.zeros((ntime, nspace), dtype=complex)
-        psi_grid[0, :] = psi  # IC
-
-        prob_array = np.zeros(ntime)  # to track normalization (total probability)
-        prob_array[0] = np.sum(np.abs(psi)**2) * dx  # initial normalization
-
-        # time evolution loop; Evolving Psi n using FTCS
-        for n in range(1, ntime):
-            psi = A @ psi  # FTCS update: Ψ^(n+1) = A Ψ^n
-            psi_grid[n, :] = psi  # to store wavefunction for this time step
-            prob_array[n] = np.sum(np.abs(psi)**2) * dx  # computes total probability
-
-    elif method == 'crank':
-        # Ψ^(n+1) = (I + iτ/2ħ H)^(-1) (I - iτ/2ħ H) Ψ^n                      (9.40)
-        # Construct matrices A and B (the parts of the formula in ()) for Crank-Nicholson
-        # Solving A Psi^(n+1) = B Psi^n
-    
-        # A = I + (iτ / 2ħ) H, B = I - (iτ / 2ħ) H
-        A = np.identity(nspace) + 1j * tau / (2 * hbar) * H
-        B = np.identity(nspace) - 1j * tau / (2 * hbar) * H
-
-        #to precompute the Crank-Nicholson matrix: dCN = A⁻¹ * B as in example
-        dCN = np.dot(np.linalg.inv(A), B)
-
-        # initializing storage for Ψ at all time steps as in 'ftcs' method
-        psi_grid = np.zeros((ntime, nspace), dtype=complex)
-        prob_array = np.zeros(ntime)  # total probability at each time step
-        psi_grid[0, :] = psi  # IC
-
-        # time evolution
-        for n in range(1, ntime):
-            psi = np.dot(dCN, psi)  # CN update
-            # checking normalization using probability density (9.44?)
-            # applying normalization  #another way: psi /= np.sqrt(np.sum(np.abs(psi)**2))  # Normalize
-            psi /= np.linalg.norm(psi)
-            psi_grid[n, :] = psi
-            prob_array[n] = np.sum(np.abs(psi)**2) * dx  # Probability   
-
-    else:
-        raise ValueError("Invalid method. Please choose 'ftcs' or 'crank'.")
+        #same for all methods
+        psi_grid[:, n] = psi
+        prob_array[n] = np.sum(np.abs(psi)**2)
 
     return psi_grid, x_grid, t_grid, prob_array
+
+
 
 def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_plot.png"):
     """
@@ -227,26 +222,30 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
     Returns:
         None (Displays the plot).
     """
-    # Calling sch_eqn to get its results and use as extra parameters.
 
+    # Calling sch_eqn to get the required outputs for plotting
     # sch_eqn (function) => Solves the 1D time-dependent Schrödinger equation using FTCS or Crank-Nicholson scheme. It returns the following parameters:
     #     psi_grid (2D array) => Wavefunction ψ(x, t) at all grid points and times.
     #     x_grid (1D array) => Spatial grid points.
     #     t_grid (1D array) => Time steps.
     #     prob_array (1D array) => Total probability at each time step.
-
     psi_grid, x_grid, t_grid, prob_array = sch_eqn(nspace=nspace, ntime=ntime, tau=tau, method=method, length=length, potential=potential, wparam=wparam)
-
-    # determines time index for plotting
+    
+    # validating t_index (it must be within the bounds of t_grid)
     if t_index is None:
-        t_index = len(t_grid) - 1  # Default to the last time step
-
-    # extracting the time step and corresponding wave function or probability density
+        t_index = len(t_grid) - 1  # Defaults to the last time step
+    if t_index < 0 or t_index >= len(t_grid):
+        raise ValueError(f"Invalid t_index {t_index}. Must be between 0 and {len(t_grid) - 1}.")
+    
+    # extracting time and the corresponding data
     time = t_grid[t_index]
+
+    # Plotting the data based on plot_type
     if plot_type == 'psi':
-        # plots the real part of the wave function at the selected time step
+        # plots the real and imaginary parts of the wave function
         plt.figure(figsize=(10, 6))
-        plt.plot(x_grid, np.real(psi_grid[t_index, :]), label=f'ψ(x,t) at t={time:.2f}')
+        plt.plot(x_grid, np.real(psi_grid[:, t_index]), label='Real part of ψ(x,t)')
+        plt.plot(x_grid, np.imag(psi_grid[:, t_index]), '--', label='Imaginary part of ψ(x,t)')
         plt.title(f"Wave Function ψ(x,t) at t = {time:.2f}", fontsize=16)
         plt.xlabel('x', fontsize=12)
         plt.ylabel('ψ(x,t)', fontsize=12)
@@ -258,28 +257,30 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
     # However, for spatial plots or local probability densities, i need to compute ∣ψ(x,t)∣ ^2 directly from the wavefunction
 
     elif plot_type == 'prob':
-        # plots the probability density |ψ(x,t)|² at the selected time step
+        # plots the probability density |ψ(x,t)|²
         plt.figure(figsize=(10, 6))
-        plt.plot(x_grid, np.abs(psi_grid[t_index, :])**2, label=f'$|ψ(x,t)|^2$ at t={time:.2f}')
+        plt.plot(x_grid, np.abs(psi_grid[:, t_index])**2, label='$|ψ(x,t)|^2$')
         plt.title(f"Probability Density |ψ(x,t)|² at t = {time:.2f}", fontsize=16)
         plt.xlabel('x', fontsize=12)
         plt.ylabel('|ψ(x,t)|²', fontsize=12)
 
     else:
+        # Raise an error if an invalid plot_type is provided
         raise ValueError("Invalid plot_type. Use 'psi' for wave function or 'prob' for probability density.")
 
-
-    # to show grid and legend
+    # adds grid and legend to the plot
     plt.grid(True)
     plt.legend()
-    
+
     # saves the plot to a file if requested
-    if save_to_file == True:
+    if save_to_file:
         plt.savefig(filename)
         print(f"Plot saved to {filename}")
-    
-    # to show the plot
+
+    # shows the plot
     plt.show()
+
+
 
 
 print("\n") #adding space #to separate it from previous user input
@@ -296,8 +297,15 @@ if plot == 'yes':
     if plot_type not in ['psi', 'prob']:
         print("Invalid input for the plot type. Plotting the default 'psi' plot.")
         plot_type = 'psi'
+        
+    t_index_input = input("Please enter time index (leave blank for the last time step, enter 0 for t=0): ").strip()
+    if t_index_input == '':
+        t_index = None  # Default to last time step
+    elif t_index_input == '0':
+        t_index = 0  # Set to t=0
+    else:
+        t_index = int(t_index_input)  # Convert input to integer
 
-    t_index_input = input("Please enter time index (leave blank for the last time step): ").strip()
     t_index = int(t_index_input) if t_index_input else None
 
     save_to_file_input = input("Do you want to save the plot to a file? (yes or no): ").strip().lower()
