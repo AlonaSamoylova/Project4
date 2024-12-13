@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # a function to get user input with a default value, needed as we need many (8) possible parameters, as test cases are not given I assumed that all parametrs may be changed
 
 import ast 
-# need as list separation by coma in the user prompt wasn't efficient
+# needed as list separation by coma in the user prompt wasn't efficient
 
 def get_input(prompt, default=None):
     """
@@ -39,14 +39,14 @@ def get_input(prompt, default=None):
 print("Please provide the input values for the simulation (or press Enter to use default test case values):")
 
 # gets number of spatial grid points (suggesting a default value of 400)
-nspace = get_input("Please enter number of spatial grid points.The is no hardcoded default value but '400' is suggested", 400)         #the default value was not given in instructions and 
-# as I should leave the function def. line unchanged, I cannot hardcode default one but at least can suggest, '400' for ex.
+nspace = get_input("Please enter number of spatial grid points.The is no hardcoded default value but '300' is suggested", 300)         #the default value was not given in instructions and 
+# as I should leave the function def. line unchanged, I cannot hardcode default one but at least can suggest, '400' for ex., 
 
 # number of time steps (suggesting a default value of 1000)
-ntime = get_input("Please enter the number of time steps. There is no default value but '1000' is suggested", 1000)    #1000 is suggested
+ntime = get_input("Please enter the number of time steps. There is no default value but '100' is suggested", 100)    #before this I have choosen 1000 but at one of the runs my computer stopped responding
 
 # time step (suggesting a default value of 0.1)
-tau = get_input("Please enter time step. There is no default value but '0.1' is suggested", 0.1)  #0.1 is suggested
+tau = get_input("Please enter time step. There is no default value but '0.001' is suggested based on a test", 0.001)  #0.001 is suggested 
 
 method = get_input("Please enter method. Type ftcs or crank", 'ftcs')        #Method to use ('ftcs' or 'crank').
 
@@ -99,7 +99,7 @@ def hamiltonian(nspace, potential=None, dx=1): #new function added
         H[i, (i + 1) % nspace] = 1  # Right neighbor (BC)   #% is needed for rounding, without it 4 -2 will look like 3.980025  -1.99 in the matrix (for ex.)
         H[i, (i - 1) % nspace] = 1  # Left neighbor (BC)
 
-    # Apply the potential V(x) to the diagonal terms of the Hamiltonian
+    # applying the potential V(x) to the diagonal terms of the Hamiltonian
     for i in range(nspace):
         H[i, i] += potential[i]  # adds potential to the diagonal
 
@@ -108,6 +108,29 @@ def hamiltonian(nspace, potential=None, dx=1): #new function added
     
     return H
 
+# function to get spectral radius for ftcs stability check
+
+# contains the code taken from NairMalavika_SamoylovaAlona_Lab10.py
+
+
+def spectral_radius(A):
+    """
+    Calculates the maxium absolute eigenvalue of a 2-D array A
+        
+    Args:
+        A : 2D array from part 1
+
+    Returns:
+        maximum absolute value of eigenvalues
+    """    
+    
+    #determine the eigenvalues, only get that value from the tuple
+    eigenvalues, _ = np.linalg.eig(A)
+    
+    #determine the maxiumum absolute value
+    max_value = max(abs(eigenvalues))
+    
+    return max_value
 
 
 
@@ -164,6 +187,11 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
     # Hamiltonian H (tridiagonal matrix)                    
     # H = -(hbar^2 / 2m)*(∂^2 / ∂x^2) + V(x) (9.27) then if m = 1/2 and nbar=1 : H=− ∂^2/ ∂x^2x +V(x)
     H = hamiltonian(nspace, potential, dx)
+    # Normalize H
+    eigenvalues_H, _ = np.linalg.eig(H)
+    H_normalized = H / max(abs(eigenvalues_H))
+
+    eigenvalues_H, _ = np.linalg.eig(H)
 
     #probability storage
     prob_array = np.zeros(ntime)
@@ -176,16 +204,25 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
         if method == 'ftcs':
             # Ψ^(n+1) = (I - (iτ / hbar) * H) * Ψ^n (9.32)
 
-            # stability check : "The disadvantage of the FTCS scheme is that it is numerically unstable if the time step is too large."
-            # Matrix coefficients; Discretization parameter is given by: r = tau / (dx**2) * hbar / (2 * m)  but nbar/2m =1 so
-            r = tau / (dx**2)
-            # at the same time h_coeff = ħ² / (2m) so max allowable time step is tau_max = dx**2 / (2 * h_coeff / hbar) but in our case when nbar=1 and m=0.5: #from wiki
-            tau_max = dx**2 / 2 # max allowable time step
-            if r > 0.5 or tau > tau_max:
-                raise ValueError(f"Unstable: Time step τ={tau:.4e} exceeds stability limit τ_max={tau_max:.4e}. Reduce τ.")
+            # # stability check : "The disadvantage of the FTCS scheme is that it is numerically unstable if the time step is too large."
+            # # Matrix coefficients; Discretization parameter is given by: r = tau / (dx**2) * hbar / (2 * m)  but nbar/2m =1 so
+            # r = tau / (dx**2)
+            # # at the same time h_coeff = ħ² / (2m) so max allowable time step is tau_max = dx**2 / (2 * h_coeff / hbar) but in our case when nbar=1 and m=0.5: #from wiki
+            # tau_max = dx**2 / 2 # max allowable time step
+            # if r > 0.5 or tau > tau_max:
+            #     raise ValueError(f"Unstable: Time step τ={tau:.4e} exceeds stability limit τ_max={tau_max:.4e}. Reduce τ.")
+
+            # Spectral radius stability check
             
-            # # constructing matrix A = I - iτ/ħ H is not neccessary, instead set this explicitely
-            
+            # # constructing matrix A = I - iτ/ħ H is not neccessary for the update (this is set this explicitely) but it can help in checking stability
+            A = np.eye(H.shape[0]) - (1j*tau/hbar)*H_normalized
+            eigenval = spectral_radius(A)
+            #looking for radius
+            rho = eigenval -1 #i don't have to take abs of eigenval again as it was taken in 
+            if rho> 1e-6:
+                #firstky there was a value error but in case if you want to see the results anyways I changed this into print statement
+                print(f"Unstable solution: Spectral radius ρ = {rho:.4e}. Reduce τ or refine grid.")
+       
             # updates the wavefunction using FTCS method
             psi = psi + (-1j * tau) * np.dot(H, psi)  # Update ψ^(n+1)
             
@@ -206,6 +243,9 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
       
         else:
             raise ValueError("Invalid method. Please choose 'ftcs' or 'crank'.")
+        
+        # # Normalize the wavefunction to ensure total probability remains 1
+        # psi /= np.sqrt(np.sum(np.abs(psi)**2) * dx)
         
         #same for all methods
         psi_grid[:, n] = psi
