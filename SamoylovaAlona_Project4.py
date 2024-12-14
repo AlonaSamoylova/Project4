@@ -1,7 +1,13 @@
+# # Created by Alona S
+
+# the code is published in the following repository https://github.com/AlonaSamoylova/Project4
+
+# Project 4
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-# a function to get user input with a default value, needed as we need many (8) possible parameters, as test cases are not given I assumed that all parametrs may be changed
+# a function to get user input with a default value, needed as we need many (8) possible parameters, and as test cases were not given I assumed that all parametrs may be changed
 
 import ast 
 # needed as list separation by coma in the user prompt wasn't efficient
@@ -22,28 +28,28 @@ def get_input(prompt, default=None):
     user_input = user_input.strip().lower()
 
 
-    # Try to convert the input to a float for single numbers.
+    # Try to convert the input to a int for single numbers.
     try:
-        return float(user_input)
+        return int(user_input)
     except ValueError:
-        # If conversion to a float fails, check if it's a valid list input
+        # if conversion fails, check if it's a valid list input
         try:
-            # Try to interpret the input as a Python-style list using ast.literal_eval
+            # try to interpret the input as a Python-style list using ast.literal_eval
             return ast.literal_eval(user_input)
         except (ValueError, SyntaxError):
-            # If it's neither a number nor a list, treat it as a string.
+            # if it's neither a number nor a list, treat it as a string.
             return user_input.strip()
 
 
 # prompts for the function
 print("Please provide the input values for the simulation (or press Enter to use default test case values):")
 
-# gets number of spatial grid points (suggesting a default value of 400)
+# gets number of spatial grid points (suggesting a default value of 300)
 nspace = get_input("Please enter number of spatial grid points.The is no hardcoded default value but '300' is suggested", 300)         #the default value was not given in instructions and 
-# as I should leave the function def. line unchanged, I cannot hardcode default one but at least can suggest, '400' for ex., 
+# as I should leave the function def. line unchanged, I cannot hardcode default one but at least can suggest, '300' for ex., 
 
-# number of time steps (suggesting a default value of 1000)
-ntime = get_input("Please enter the number of time steps. There is no default value but '100' is suggested", 100)    #before this I have choosen 1000 but at one of the runs my computer stopped responding
+# number of time steps (suggesting a default value of 100)
+ntime = get_input("Please enter the number of time steps. There is no default value but '100' is suggested", 100) 
 
 # time step (suggesting a default value of 0.1)
 tau = get_input("Please enter time step. There is no default value but '0.001' is suggested based on a test", 0.001)  #0.001 is suggested 
@@ -58,14 +64,6 @@ potential = get_input("Please enter spatial index values at which the potential 
 
 #parameters for initial wave packet
 wparam = get_input("Please enter parameters for initial wave packet [sigma0, x0, k0]", [10, 0, 0.5]) #Default [10, 0, 0.5].
-
-# print(f"nspace: {nspace}")
-# print(f"ntime: {ntime}")
-# print(f"tau: {tau}")
-# print(f"method: {method}")
-# print(f"length: {length}")
-# print(f"potential: {potential}")
-# print(f"wparam: {wparam}")
 
 
 def hamiltonian(nspace, potential=None, dx=1): #new function added
@@ -91,7 +89,7 @@ def hamiltonian(nspace, potential=None, dx=1): #new function added
     
     H = np.zeros((nspace, nspace), dtype=float)  # Initializing matrix , firstly i wanted to set type to complex but we need only real values?
 
-    # in the considered case  H=− ∂^2/ ∂x^2x +V(x) if m = 1/2 and nbar=1 by (9.27)
+    # in the considered case  H=− ∂^2/ ∂x^2 +V(x) if m = 1/2 and nbar=1 by (9.27)
 
     # Kinetic energy operator (second derivative approximation with periodic boundary)
     for i in range(nspace):
@@ -132,7 +130,7 @@ def spectral_radius(A):
     
     return max_value
 
-
+# the main function
 
 def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=[10, 0, 0.5]):
     """
@@ -179,14 +177,15 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
     psi_init = Norm * np.exp(-(x_grid - x0)**2 / (2 * sigma0**2)) * np.exp(1j * k0 * x_grid)
 
     # initializing the wave function grid for all times
-    psi_grid = np.zeros((nspace, ntime), dtype=complex)  # No +1 for ntime
+    psi_grid = np.zeros((nspace, ntime), dtype=complex)
     psi_grid[:, 0] = psi_init  # Initial condition
     psi = psi_init.copy()
     
 
-    # Hamiltonian H (tridiagonal matrix)                    
+    # initializing Hamiltonian using the following formula:              
     # H = -(hbar^2 / 2m)*(∂^2 / ∂x^2) + V(x) (9.27) then if m = 1/2 and nbar=1 : H=− ∂^2/ ∂x^2x +V(x)
     H = hamiltonian(nspace, potential, dx)
+
     # Normalize H
     eigenvalues_H, _ = np.linalg.eig(H)
     H_normalized = H / max(abs(eigenvalues_H))
@@ -197,22 +196,14 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
     prob_array = np.zeros(ntime)
     prob_array[0] = np.sum(np.abs(psi)**2)
 
-    # Start solving the equation for each time step
+    # let's start solving the equation for each time step
     for n in range(1, ntime):
         # For FTCS method:
 
         if method == 'ftcs':
             # Ψ^(n+1) = (I - (iτ / hbar) * H) * Ψ^n (9.32)
 
-            # # stability check : "The disadvantage of the FTCS scheme is that it is numerically unstable if the time step is too large."
-            # # Matrix coefficients; Discretization parameter is given by: r = tau / (dx**2) * hbar / (2 * m)  but nbar/2m =1 so
-            # r = tau / (dx**2)
-            # # at the same time h_coeff = ħ² / (2m) so max allowable time step is tau_max = dx**2 / (2 * h_coeff / hbar) but in our case when nbar=1 and m=0.5: #from wiki
-            # tau_max = dx**2 / 2 # max allowable time step
-            # if r > 0.5 or tau > tau_max:
-            #     raise ValueError(f"Unstable: Time step τ={tau:.4e} exceeds stability limit τ_max={tau_max:.4e}. Reduce τ.")
-
-            # Spectral radius stability check
+            # spectral radius stability check
             
             # # constructing matrix A = I - iτ/ħ H is not neccessary for the update (this is set this explicitely) but it can help in checking stability
             A = np.eye(H.shape[0]) - (1j*tau/hbar)*H_normalized
@@ -220,16 +211,17 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
             #looking for radius
             rho = eigenval -1 #i don't have to take abs of eigenval again as it was taken in 
             if rho> 1e-6:
-                #firstky there was a value error but in case if you want to see the results anyways I changed this into print statement
-                print(f"Unstable solution: Spectral radius ρ = {rho:.4e}. Reduce τ or refine grid.")
+                #value error to terminate integration if the soln. is unstable
+                raise ValueError(f"Unstable: Time step τ={tau:.4e} exceeds stability limit. Reduce τ.")
+
        
             # updates the wavefunction using FTCS method
             psi = psi + (-1j * tau) * np.dot(H, psi)  # Update ψ^(n+1)
             
         elif method == 'crank':
             # Ψ^(n+1) = (I + iτ/2ħ H)^(-1) (I - iτ/2ħ H) Ψ^n
-            # Construct matrices A and B (the parts of the formula in ()) for Crank-Nicholson
-            # Solving A Psi^(n+1) = B Psi^n
+            # let's construct matrices A and B (the parts of the formula in ()) for Crank-Nicholson scheme
+            # and then solve A Psi^(n+1) = B Psi^n
             
             # A = I + (iτ / 2ħ) H, B = I - (iτ / 2ħ) H
             A = np.identity(nspace) + 1j * tau / (2 * hbar) * H
@@ -243,9 +235,6 @@ def sch_eqn(nspace, ntime, tau, method='ftcs', length=200, potential=[], wparam=
       
         else:
             raise ValueError("Invalid method. Please choose 'ftcs' or 'crank'.")
-        
-        # # Normalize the wavefunction to ensure total probability remains 1
-        # psi /= np.sqrt(np.sum(np.abs(psi)**2) * dx)
         
         #same for all methods
         psi_grid[:, n] = psi
@@ -270,11 +259,6 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
     """
 
     # Calling sch_eqn to get the required outputs for plotting
-    # sch_eqn (function) => Solves the 1D time-dependent Schrödinger equation using FTCS or Crank-Nicholson scheme. It returns the following parameters:
-    #     psi_grid (2D array) => Wavefunction ψ(x, t) at all grid points and times.
-    #     x_grid (1D array) => Spatial grid points.
-    #     t_grid (1D array) => Time steps.
-    #     prob_array (1D array) => Total probability at each time step.
     psi_grid, x_grid, t_grid, prob_array = sch_eqn(nspace=nspace, ntime=ntime, tau=tau, method=method, length=length, potential=potential, wparam=wparam)
     
     # validating t_index (it must be within the bounds of t_grid)
@@ -295,11 +279,14 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
         plt.xlabel('x', fontsize=12)
         plt.ylabel('ψ(x,t)', fontsize=12)
 
-    # I can't directly use prob_array for plotting is that it represents the total probability over all spatial grid points at each time step, rather than the local probability density at each point in space.
-    # to instead of integral of abs [psi^2] given by prob_array, I need only abs [psi^2]
+    # Explanation:
+
     # From instructions: prob_array is "1-D array that gives the total probability computed for each timestep (which should be conserved)" 
-    # so prob_array matches the instructions perfectly. It ensures the conservation of total probability over time and helps validate the numerical accuracy of your method. 
-    # However, for spatial plots or local probability densities, i need to compute ∣ψ(x,t)∣ ^2 directly from the wavefunction
+    # The prob_array matches the instructions perfectly. It ensures the conservation of total probability over time and helps validate the numerical accuracy of chosen method. 
+    
+    # However, I can't directly use prob_array for plotting is that it represents the total probability over all spatial grid points at each time step, rather than the local probability density at each point in space.
+    # so instead of integral of the abs [psi^2] given by prob_array, I need only abs [psi^2]
+    # or in other words for spatial plots or local probability densities, i need to compute ∣ψ(x,t)∣ ^2 directly from the wavefunction
 
     elif plot_type == 'prob':
         # plots the probability density |ψ(x,t)|²
@@ -310,7 +297,7 @@ def sch_plot(plot_type='psi', t_index=None, save_to_file=False, filename="sch_pl
         plt.ylabel('|ψ(x,t)|²', fontsize=12)
 
     else:
-        # Raise an error if an invalid plot_type is provided
+        # to raise an error if an invalid plot_type is provided
         raise ValueError("Invalid plot_type. Use 'psi' for wave function or 'prob' for probability density.")
 
     # adds grid and legend to the plot
@@ -368,3 +355,5 @@ if plot == 'yes':
 else:
     print("No plot will be generated.")
 
+#           Thank you for reading this!
+#               Hope you enjoyed it :)
